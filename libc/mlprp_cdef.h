@@ -1,6 +1,7 @@
 #ifndef __mlprp_cdef__
 #define __mlprp_cdef__
 
+typedef unsigned long size_t;
 typedef signed char char_t;
 typedef unsigned char uchar_t;
 typedef signed int wchar_t;
@@ -14,8 +15,6 @@ typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
 typedef unsigned long long uint64_t;
 typedef unsigned char bool;
-
-typedef unsigned long size_t;
 
 #endif
 
