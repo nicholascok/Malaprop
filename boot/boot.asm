@@ -1,65 +1,83 @@
 [BITS 16]
 [ORG 0x7C00]
 
-; enable video mode 02h (80 x 25 Text mode)
-MOV ah, 0x00; int 10h, func 00h
-MOV al, 0x02; video mode (2)
-INT 0x10
+JMP 0x0000:_start
 
-JMP _start
-
-;move cursor to next line
+; move cursor to next line
 new_line:
-MOV ah, 0x03; int 10h, func 03h
-INT 0x10
-XOR dl, dl; cursor column (0)
-INC dh; increment cursor row
-MOV ah, 0x02; int 10h, func 02h
-INT 0x10
-RET
+	XOR bh, bh;
+	MOV ah, 0x03; int 10h, func 03h
+	INT 0x10
+	XOR dl, dl; cursor column (0)
+	INC dh; increment cursor row
+	MOV ah, 0x02; int 10h, func 02h
+	INT 0x10
+	RET
 
 ; print message(from si register) to the screen
 print:
-XOR bh, bh; page number (0)
-MOV ah, 0x0E; int 10h, func 0Eh
-MOV bl, 0x0F; text colour (white)
+	XOR bh, bh; page number (0)
+	MOV ah, 0x0E; int 10h, func 0Eh
+	MOV bl, 0x0F; text colour (white)
 
-print_char:
-MOV al, [si]; character to print
-OR al, al
-JZ exit
-INT 0x10
-INC si
-JMP print_char
+next_char:
+	MOV al, [si]; character to print
+	OR al, al
+	JZ exit
+	INT 0x10
+	INC si
+	JMP next_char
 
 exit:
 	RET
 
+global _start
 _start:
+; BiOS loads boot drive into the dl register:
+; save this value for later use.
+MOV [boot_drive], dl
+
+; initalize registers
+XOR ax, ax
+XOR bx, bx
+XOR cx, cx
+XOR dx, dx
+XOR si, si
+MOV es, ax
+
+; enable video mode 03h (80 x 25 Text mode)
+MOV ah, 0x00; int 10h, func 00h
+MOV al, 0x03; video mode (3)
+INT 0x10
 
 ; print initialization message
 MOV si, initialization_message
 CALL print
 
-; load the kernel into memory at 0x10000
-MOV ah, 0x02; int 13h, func 02h
-MOV al, 0x40; number of sectors to read (64)
-MOV ch, 0x00; cylinder number (0)
-MOV cl, 0x02; starting sector number (2)
-MOV dh, 0x00; head number (0)
-MOV dl, 0x00; drive number (floppy disk 0)
-; (0x00-0x7F are for floppy disks and 0x80-0xFF are for fixed drives)
-
-; copy data into physical address 0x10000
-MOV dx, 0x1000
-MOV es, dx
-MOV bx, 0x0000
+; reset disk
+MOV ah, 0x00; int 13h, func 00h
+MOV dl, [boot_drive]; drive number (boot drive, given by BiOS)
 INT 0x13
 
-; carry flag is set if there was an error
-JC success
+; load the kernel into memory at 0x10000
+MOV bx, 0x7E00
+MOV ah, 0x02; int 13h, func 02h
+MOV ch, 0x00; cylinder number (0)
+MOV dh, 0x00; head number (0)
+MOV cl, 0x02; first sector to read (2)
+MOV al, 0x10; number of sectors to read (16)
+MOV dl, [boot_drive]; drive number (boot drive, given by BiOS)
 
-; print error
+INT 0x13
+
+JMP 0x7E00
+
+; carry flag is set if there was an error:
+; (only try to read the drive once because
+; im lazy and don't care)
+JNC success
+
+; print error message
 MOV si, read_error
 CALL new_line
 CALL print
@@ -67,6 +85,33 @@ CALL print
 success:
 
 CLI; disable interrupts
+
+; load the gdt
+load_gdt:
+LGDT [gdtr]
+; far jump to reload the cs (code segment) register, since it cannot
+; be diretly accessed.
+; 0x08 points to new code selector (8-bit offset from start of gdt)
+JMP 0x08:complete_load
+
+; reload segment registers (excluding the cs register) by initializing
+; them with a reference to the new data selector.
+; 0x10 points to new data selector (16-bit offset from start of gdt)
+complete_load:
+	MOV ax, 0x10
+	MOV ds, ax
+	MOV es, ax
+	MOV fs, ax
+	MOV gs, ax
+	MOV ss, ax
+
+; enter protected mode
+MOV eax, cr0
+OR eax, 1
+MOV cr0, eax
+
+; far jump to kernel
+JMP 0x08:0x10000
 
 ; setup gdt (global descriptor table)
 
@@ -108,36 +153,10 @@ gdtr:
 	DW gdt_num_entries * gdt_entry_size; 16-bits - size of gdt (24)
 	DD gdt; 32-bits - location of gdt in memory
 
-; load the gdt
-load_gdt:
-LGDT [gdtr]
-; far jump to reload the cs (code segment) register, since it cannot
-; be diretly accessed.
-; 0x08 points to new code selector (8-bit offset from start of gdt)
-JMP 0x08:complete_load
+boot_drive:
+	DB 0x00
 
-; reload segment registers by initializing them with a reference to the
-; new data selector.
-; 0x10 points to new data selector (16-bit offset from start of gdt)
-complete_load:
-MOV ax, 0x10
-MOV ds, ax
-MOV es, ax
-MOV fs, ax
-MOV gs, ax
-MOV ss, ax
-RET
-
-; enter protected mode
-MOV eax, cr0
-OR eax, 1
-MOV cr0, eax
-
-; far jump to kernel
-;JMP 0x08:0x10000
-JMP 0x1000:0x0000
-
-initialization_message DB "Initalizing Kernel...", 0
+initialization_message DB "Initializing Kernel...", 0
 read_error DB "READ ERROR: Could not retreive kernel from disk.", 0
 
 ; fill the rest of the boot sector with padded zeros
@@ -146,12 +165,9 @@ DW 0xAA55; boot signature
 
 [BITS 32]
 
-; setup stack
+MOV ax, 0xB800
+MOV es, ax
+MOV bx, 0
+MOV DWORD[es:bx], "TEST"
 
-MOV esp, stack_bottom
-MOV DWORD[0xB0000], 0x07690748
-
-ALIGN 32
-stack_bottom: EQU $
-RESB 16384; reserve 16KiB of memory
-stack_top:
+JMP $
