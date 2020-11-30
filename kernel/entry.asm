@@ -1,0 +1,4 @@
+[BITS 32]
+
+MOV DWORD[0xB8000], "TEST"
+JMP $
