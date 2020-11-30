@@ -9,6 +9,10 @@ _start:
 ; save this value for later use.
 MOV [boot_drive], dl
 
+; enable the A20 line
+MOV ax, 0x2401
+INT 0x15
+
 ; enable video mode 03h (80 x 25 Text mode)
 MOV ah, 0x00; int 10h, func 00h
 MOV al, 0x03; video mode (3)
@@ -27,7 +31,7 @@ INT 0x13
 MOV si, error_message
 JC print_error
 
-; load the kernel into memory at 0x10000
+; load the kernel into memory at 0x100000 (1 MiB)
 MOV bx, 0x1000
 MOV es, bx
 MOV bx, 0x0000
@@ -51,28 +55,25 @@ CLI
 ; load the gdt
 LGDT [gdtr]
 
+; reload segment registers (excluding the cs register) by initializing
+; them with a reference to the new data selector.
+; 0x10 points to new data selector (16-bit offset from start of gdt)
+MOV ax, 0x10
+MOV ds, ax
+MOV es, ax
+MOV fs, ax
+MOV gs, ax
+MOV ss, ax
+
 ; enter protected mode
 MOV eax, cr0
 OR eax, 1
 MOV cr0, eax
 
-; reload segment registers (excluding the cs register) by initializing
-; them with a reference to the new data selector.
-; 0x10 points to new data selector (16-bit offset from start of gdt)
-complete_load:
-	MOV ax, 0x10
-	MOV ds, ax
-	MOV es, ax
-	MOV fs, ax
-	MOV gs, ax
-	MOV ss, ax
-
 ; far jump to kernel (also reload the cs (code segment) register, since
 ; it cannot be diretly accessed).
 ; 0x08 points to new code selector (8-bit offset from start of gdt)
 JMP 0x08:0x10000
-
-JMP $
 
 ; setup gdt (global descriptor table)
 
@@ -172,14 +173,11 @@ DW 0xAA55; boot signature
 
 ; Start of sector 2 (this code is copied into memory)
 
-MOV ax, 0xB800
-MOV es, ax
-MOV bx, 0
+;[BITS 32]
+
+_main:
+
+MOV bx, 0xB800
+MOV es, bx
+MOV bx, 0x0000
 MOV DWORD[es:bx], "TEST"
-
-;MOV ebx, 0xB8000
-;MOV al, "!"
-;MOV ah, 0x0F
-;MOV [ebx], ax
-
-JMP $
