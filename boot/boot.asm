@@ -9,6 +9,8 @@ _start:
 ; save this value for later use.
 MOV [boot_drive], dl
 
+; Initialize registers
+
 ; enable the A20 line
 MOV ax, 0x2401
 INT 0x15
@@ -55,6 +57,11 @@ CLI
 ; load the gdt
 LGDT [gdtr]
 
+; enter protected mode
+MOV eax, cr0
+OR eax, 0x1
+MOV cr0, eax
+
 ; reload segment registers (excluding the cs register) by initializing
 ; them with a reference to the new data selector.
 ; 0x10 points to new data selector (16-bit offset from start of gdt)
@@ -65,15 +72,12 @@ MOV fs, ax
 MOV gs, ax
 MOV ss, ax
 
-; enter protected mode
-MOV eax, cr0
-OR eax, 1
-MOV cr0, eax
-
 ; far jump to kernel (also reload the cs (code segment) register, since
 ; it cannot be diretly accessed).
 ; 0x08 points to new code selector (8-bit offset from start of gdt)
 JMP 0x08:0x10000
+
+
 
 ; setup gdt (global descriptor table)
 
@@ -164,6 +168,10 @@ boot_drive:
 error_code:
 	DW 0x0000
 
+kjump:
+	BITS 32
+	JMP 0x08:0x10000
+
 initialization_message DB "Loading Kernel...", 0
 error_message DB "DISK ERROR: CODE ", 0
 
@@ -173,11 +181,11 @@ DW 0xAA55; boot signature
 
 ; Start of sector 2 (this code is copied into memory)
 
-;[BITS 32]
-
-_main:
+[BITS 32]
 
 MOV bx, 0xB800
 MOV es, bx
 MOV bx, 0x0000
 MOV DWORD[es:bx], "TEST"
+
+JMP $
