@@ -1,6 +1,9 @@
 [BITS 32]
 
 SECTION .text
+global _start
+_start:
+
 MOV esp, stack_top
 MOV ebp, esp
 

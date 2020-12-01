@@ -3,14 +3,20 @@
 
 [BITS 32]
 
-MOV esp, stack_top
+SECTION .text
+global _start
+_start:
 
-; test
-MOV DWORD[0xB8000], "T?E?"
-MOV DWORD[0xB8004], "S?T?"
+MOV esp, stack_top
+MOV ebp, esp
+
+EXTERN kmain
+CALL kmain
 
 JMP $
 
+SECTION .bss
+ALIGN 32
 stack_bottom: EQU $
 	RESB 16384; reserve 16KiB for the stack
 stack_top:

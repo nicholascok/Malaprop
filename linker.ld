@@ -5,7 +5,7 @@ SECTIONS
 {
 	. = 0x7C00;
 	.text : { *(.boot) }
-	. = 64K;
+	. = 0x10000;
 	.text : { *(.text) }
 	.rodata : { *(.rodata) }
 	.data : { *(.data) }

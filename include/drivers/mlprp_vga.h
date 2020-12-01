@@ -3,6 +3,6 @@
 
 #include "../../libc/mlprp_cdef.h"
 
-void VGA_PRINT_STRING_AT (char* str);
+void VGA_PRINT(const char* str, uint8_t colour);
 
 #endif

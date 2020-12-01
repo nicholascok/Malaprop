@@ -49,10 +49,6 @@ MOV es, ax
 MOV ss, ax
 MOV sp, 0x7C00
 
-; enable the A20 line
-MOV ax, 0x2401
-INT 0x15
-
 ; enable video mode 03h (80 x 25 Text mode)
 MOV ah, 0x00; int 10h, func 00h
 MOV al, 0x03; video mode (3)
