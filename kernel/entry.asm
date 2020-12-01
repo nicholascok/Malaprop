@@ -1,4 +1,16 @@
 [BITS 32]
 
-MOV DWORD[0xB8000], "TEST"
+SECTION .text
+MOV esp, stack_top
+MOV ebp, esp
+
+EXTERN kmain
+CALL kmain
+
 JMP $
+
+SECTION .bss
+ALIGN 32
+stack_bottom: EQU $
+	RESB 16384; reserve 16KiB for the stack
+stack_top:
