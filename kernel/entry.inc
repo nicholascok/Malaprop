@@ -15,6 +15,8 @@ CALL kmain
 
 JMP $
 
+SECTION .rodata
+
 SECTION .bss
 ALIGN 32
 stack_bottom: EQU $

@@ -1,12 +1,34 @@
-all:
-	nasm -f elf32 -o boot.o boot/boot.asm
-	nasm -f elf32 -o entry.o kernel/entry.asm
-	gcc -fno-pie -m32 -c kernel/kernel.c -o kernel.o -nostdlib -ffreestanding -O2 -Wall -Wextra
-	gcc -fno-pie -m32 -c kernel/drivers/mlprp_vga.c -o vga.o -nostdlib -ffreestanding -O2 -Wall -Wextra
-	gcc -fno-pie -T linker.ld -o boot.bin -ffreestanding -O2 -nostdlib include/kernel.h include/drivers/mlprp_vga.h boot.o entry.o kernel.o vga.o -lgcc -m32
-#	qemu-system-x86_64 -fda boot.bin -boot a -m 100M
+AC		:= nasm
+AC_FLAGS	:= -f elf32
 
-#	nasm -f bin -o boot.bin boot/boot.asm
-	dd if=/dev/zero of=floppy.img bs=1024 count=1440
-	dd if=boot.bin of=floppy.img seek=0 count=64 conv=notrunc
-	qemu-system-x86_64 -drive format=raw,file=floppy.img
+CC		:= gcc
+CC_FLAGS	:= -nostdlib -ffreestanding -O0 -Wall -Wextra -fno-pie -m32
+
+TARGET_DIR	:= build
+HEADERS	:= include/kernel.h include/drivers/mlprp_vga.h
+OBJS		:= $(TARGET_DIR)/boot.o $(TARGET_DIR)/entry.o $(TARGET_DIR)/kernel.o $(TARGET_DIR)/vga.o
+
+.PHONY: all compile build make_disk clean
+
+all: compile build make_disk
+
+compile:
+	@echo "compiling objects..."
+	$(AC) $(AC_FLAGS) -o $(TARGET_DIR)/boot.o boot/boot.asm
+	$(AC) $(AC_FLAGS) -o $(TARGET_DIR)/entry.o kernel/entry.asm
+	$(CC) $(CC_FLAGS) -c kernel/kernel.c -o $(TARGET_DIR)/kernel.o
+	$(CC) $(CC_FLAGS) -c kernel/drivers/mlprp_vga.c -o $(TARGET_DIR)/vga.o
+
+build:
+	@echo "building..."
+	$(CC) $(CC_FLAGS) -lgcc -T linker.ld -o $(TARGET_DIR)/boot.bin $(HEADERS) $(OBJS)
+
+make_disk:
+	@echo "generating virtual floppy..."
+	dd if=/dev/zero of=$(TARGET_DIR)/floppy.img bs=1024 count=1440
+	dd if=$(TARGET_DIR)/boot.bin of=$(TARGET_DIR)/floppy.img seek=0 count=1024 conv=notrunc
+	qemu-system-x86_64 -drive format=raw,file=$(TARGET_DIR)/floppy.img
+	
+clean:
+	@echo "cleaning build directory..."
+	rm -rf build/*
