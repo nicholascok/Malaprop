@@ -1,4 +1,4 @@
-#include "../../include/drivers/mlprp_vga.h"
+#include "../../include/drivers/mlprp_vga_graphics.h"
 
 void VGA_PRINT(const char* str, uint8_t colour) {
 	volatile char* TEXT_BUFFER = (volatile char*) 0xB8000;

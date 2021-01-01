@@ -1,3 +1,4 @@
+section .boot
 [BITS 16]
 ;[ORG 0x7C00]
 
@@ -58,16 +59,20 @@ _boot:
 	MOV si, init_msg
 	CALL print
 
+	; enable A20 line
+	MOV ax, 0x2401
+	INT 0x15
+
 	; reset disk
 	MOV ah, 0x00; int 13h, func 00h
 	MOV dl, [boot_drive]; drive number (boot drive, given by BiOS)
 	INT 0x13
 	JC error; carry flag is set if there was an error:
 
-	; load the kernel into memory at 0x10000
-	MOV bx, 0x1000
-	MOV es, bx
+	; load the kernel into memory at 0x7E00
 	MOV bx, 0x0000
+	MOV es, bx
+	MOV bx, copy_location
 	MOV ah, 0x02; int 13h, func 02h
 	MOV ch, 0x00; cylinder number (0)
 	MOV dh, 0x00; head number (0)
@@ -98,10 +103,12 @@ _boot:
 	MOV fs, ax
 	MOV gs, ax
 	MOV ss, ax
-	JMP 0x08:0x10000
+	JMP 0x08:0x7E00
 
 	CLI
 	JMP $
 ; fill the rest of the boot sector with padded zeros
 TIMES 510-($-$$) DB 0
 DW 0xAA55; boot signature
+
+copy_location:

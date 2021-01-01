@@ -5,7 +5,7 @@ CC		:= gcc
 CC_FLAGS	:= -nostdlib -ffreestanding -O0 -Wall -Wextra -fno-pie -m32
 
 TARGET_DIR	:= build
-HEADERS	:= include/kernel.h include/drivers/mlprp_vga.h
+HEADERS	:= include/kernel.h include/drivers/mlprp_vga_text.h
 OBJS		:= $(TARGET_DIR)/boot.o $(TARGET_DIR)/entry.o $(TARGET_DIR)/kernel.o $(TARGET_DIR)/vga.o
 
 .PHONY: all compile build make_disk clean
@@ -17,7 +17,7 @@ compile:
 	$(AC) $(AC_FLAGS) -o $(TARGET_DIR)/boot.o boot/boot.asm
 	$(AC) $(AC_FLAGS) -o $(TARGET_DIR)/entry.o kernel/entry.asm
 	$(CC) $(CC_FLAGS) -c kernel/kernel.c -o $(TARGET_DIR)/kernel.o
-	$(CC) $(CC_FLAGS) -c kernel/drivers/mlprp_vga.c -o $(TARGET_DIR)/vga.o
+	$(CC) $(CC_FLAGS) -c kernel/drivers/mlprp_vga_text.c -o $(TARGET_DIR)/vga.o
 
 build:
 	@echo "building..."
