@@ -15,7 +15,7 @@ void VGA_SET_CURSOR(uint8_t _x, uint8_t _y) {
 	VGA_UPDATE_CURSOR();
 }
 
-void VGA_UPDATE_CURSOR() {
+void VGA_UPDATE_CURSOR(void) {
 	if (CURSOR_ENABLED) {
 		uint16_t offset = CURSOR.y * VGA_WIDTH + CURSOR.x;
 		outb(0x3D4, 0x0F);
@@ -32,29 +32,43 @@ void VGA_CURSOR_ENABLE(uint8_t cursor_start, uint8_t cursor_end) {
 	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
 }
 
-void VGA_CURSOR_DISABLE() {
+void VGA_CURSOR_DISABLE(void) {
 	outb(0x3D4, 0x0A);
 	outb(0x3D5, 0x20);
 }
 
-void VGA_NEWLINE() {
+void VGA_NEWLINE(void) {
 	CURSOR.x = 0;
 	CURSOR.y++;
 }
 
-void VGA_PRINT(const char* str, uint8_t colour) {
+void VGA_PRINT(char* str, uint8_t colour) {
 	volatile char* TEXT_BUFFER = VGA_TEXT_BUFFER + VGA_GET_OFFSET(CURSOR.x, CURSOR.y);
 	while (*str != 0) {
-		*str == 0x0A && (TEXT_BUFFER += VGA_WIDTH * VGA_BYTES_PER_CHAR - (TEXT_BUFFER - VGA_TEXT_BUFFER) % (VGA_WIDTH * VGA_BYTES_PER_CHAR), str++);
-		*TEXT_BUFFER++ = *str++;
-		*TEXT_BUFFER++ = colour;
+		switch (*str) {
+			case 0x08:
+				if (TEXT_BUFFER > 0xB800E) {
+					*(TEXT_BUFFER - 2) = 0;
+					TEXT_BUFFER -= 2;
+					str++;
+				} else TEXT_BUFFER += 2;
+				break;
+			case 0x0A:
+				TEXT_BUFFER += VGA_GET_NEWLINE_OFFSET(TEXT_BUFFER);
+				str++;
+				break;
+			default:
+				*TEXT_BUFFER++ = *str++;
+				*TEXT_BUFFER++ = colour;
+				break;
+		}
 	}
 	CURSOR.x = VGA_GET_X((TEXT_BUFFER - VGA_TEXT_BUFFER) / VGA_BYTES_PER_CHAR);
 	CURSOR.y = VGA_GET_Y((TEXT_BUFFER - VGA_TEXT_BUFFER) / VGA_BYTES_PER_CHAR);
 	VGA_UPDATE_CURSOR();
 }
 
-void VGA_CLEAR() {
+void VGA_CLEAR(void) {
 	for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
 		*(VGA_TEXT_BUFFER + 2 * i) = 0x00;
 		*(VGA_TEXT_BUFFER + 2 * i + 1) = VGA_COLOUR;
@@ -63,7 +77,11 @@ void VGA_CLEAR() {
 }
 
 uint16_t VGA_GET_OFFSET(uint8_t _x, uint8_t _y) {
-	return VGA_WIDTH * _y + _x * 2;
+	return (VGA_WIDTH * _y + _x) * 2;
+}
+
+uint16_t VGA_GET_NEWLINE_OFFSET(volatile char* _TEXT_BUFFER) {
+	return VGA_WIDTH * VGA_BYTES_PER_CHAR - (_TEXT_BUFFER - VGA_TEXT_BUFFER) % (VGA_WIDTH * VGA_BYTES_PER_CHAR);
 }
 
 uint8_t VGA_GET_X(uint16_t offset) {

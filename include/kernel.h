@@ -3,7 +3,12 @@
 
 #include "../libc/mlprp_cdef.h"
 #include "./drivers/mlprp_vga_text.h"
+#include "./idt.h"
 
-extern void kmain(void);
+void kmain(void);
+
+void irq_keyboard(void);
+
+uint8_t get_ascii(uint8_t _c);
 
 #endif
